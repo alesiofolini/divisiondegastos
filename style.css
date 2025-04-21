@@ -1,0 +1,25 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  padding: 0;
+  max-width: 600px;
+  margin: auto;
+}
+input {
+  display: block;
+  margin: 5px 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+}
+button {
+  margin: 5px 5px 5px 0;
+  padding: 10px;
+}
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+.inline-btns {
+  float: right;
+}
