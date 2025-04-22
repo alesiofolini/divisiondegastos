@@ -14,8 +14,6 @@
       navigator.serviceWorker.register('sw.js');
     }
   </script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tarekraafat/autocomplete.js@10.2.7/dist/css/autoComplete.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/@tarekraafat/autocomplete.js@10.2.7/dist/autoComplete.min.js"></script>
 </head>
 <body>
   <h1>Expense Splitter</h1>
@@ -23,7 +21,7 @@
   <button onclick="addAttendee()">Add</button>
   <ul id="attendeeList"></ul>
 
-  <input id="payerSelect" placeholder="Who paid?" />
+  <select id="payerSelect"></select>
   <input id="amount" type="number" placeholder="Amount" />
   <input id="description" placeholder="Description" />
   <button onclick="addExpense()">Add Expense</button>
