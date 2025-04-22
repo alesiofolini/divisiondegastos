@@ -1,13 +1,5 @@
-// Expense Splitter JS
-
 let attendees = JSON.parse(localStorage.getItem('attendees')) || [];
 let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
-
-window.onload = () => {
-  renderAttendees();
-  renderExpenses();
-  updatePayerDropdown();
-};
 
 function saveData() {
   localStorage.setItem('attendees', JSON.stringify(attendees));
@@ -19,60 +11,34 @@ function addAttendee() {
   const name = nameInput.value.trim();
   if (name && !attendees.includes(name)) {
     attendees.push(name);
+    nameInput.value = '';
+    updateAttendeeList();
+    updatePayerSelect();
     saveData();
-    renderAttendees();
-    updatePayerDropdown();
+    nameInput.focus();
   }
-  nameInput.value = '';
-  nameInput.focus();
 }
 
-function renderAttendees() {
-  const list = document.getElementById('attendeeList');
-  list.innerHTML = '';
+function updateAttendeeList() {
+  const ul = document.getElementById('attendeeList');
+  ul.innerHTML = '';
   attendees.forEach((name, index) => {
     const li = document.createElement('li');
     li.textContent = name;
-    const editBtn = document.createElement('button');
-    editBtn.textContent = 'Edit';
-    editBtn.onclick = () => editAttendee(index);
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = 'Delete';
-    deleteBtn.onclick = () => deleteAttendee(index);
-    li.appendChild(editBtn);
-    li.appendChild(deleteBtn);
-    list.appendChild(li);
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '❌';
+    delBtn.onclick = () => {
+      attendees.splice(index, 1);
+      updateAttendeeList();
+      updatePayerSelect();
+      saveData();
+    };
+    li.appendChild(delBtn);
+    ul.appendChild(li);
   });
 }
 
-function editAttendee(index) {
-  const newName = prompt('Edit name:', attendees[index]);
-  if (newName && newName.trim()) {
-    const oldName = attendees[index];
-    attendees[index] = newName.trim();
-    expenses.forEach(exp => {
-      if (exp.payer === oldName) exp.payer = newName.trim();
-    });
-    saveData();
-    renderAttendees();
-    renderExpenses();
-    updatePayerDropdown();
-  }
-}
-
-function deleteAttendee(index) {
-  const name = attendees[index];
-  if (confirm(`Delete ${name}?`)) {
-    attendees.splice(index, 1);
-    expenses = expenses.filter(exp => exp.payer !== name);
-    saveData();
-    renderAttendees();
-    renderExpenses();
-    updatePayerDropdown();
-  }
-}
-
-function updatePayerDropdown() {
+function updatePayerSelect() {
   const select = document.getElementById('payerSelect');
   select.innerHTML = '';
   attendees.forEach(name => {
@@ -86,78 +52,69 @@ function updatePayerDropdown() {
 function addExpense() {
   const payer = document.getElementById('payerSelect').value;
   const amount = parseFloat(document.getElementById('amount').value);
-  const description = document.getElementById('description').value.trim();
-  if (payer && amount && description) {
+  const description = document.getElementById('description').value;
+  if (payer && !isNaN(amount) && amount > 0) {
     expenses.push({ payer, amount, description });
+    updateExpenseList();
     saveData();
-    renderExpenses();
     document.getElementById('amount').value = '';
     document.getElementById('description').value = '';
   }
 }
 
-function renderExpenses() {
-  const list = document.getElementById('expenseList');
-  list.innerHTML = '';
-  expenses.forEach((exp, index) => {
+function updateExpenseList() {
+  const ul = document.getElementById('expenseList');
+  ul.innerHTML = '';
+  expenses.forEach((expense, index) => {
     const li = document.createElement('li');
-    li.textContent = `${exp.payer} paid $${exp.amount.toFixed(2)} for ${exp.description}`;
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = 'Delete';
-    deleteBtn.onclick = () => deleteExpense(index);
-    li.appendChild(deleteBtn);
-    list.appendChild(li);
+    li.textContent = `${expense.payer} paid $${expense.amount.toFixed(2)} for ${expense.description}`;
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '❌';
+    delBtn.onclick = () => {
+      expenses.splice(index, 1);
+      updateExpenseList();
+      saveData();
+    };
+    li.appendChild(delBtn);
+    ul.appendChild(li);
   });
-}
-
-function deleteExpense(index) {
-  expenses.splice(index, 1);
-  saveData();
-  renderExpenses();
 }
 
 function calculate() {
   const totals = {};
-  const perPerson = {};
+  attendees.forEach(name => totals[name] = 0);
+  expenses.forEach(e => totals[e.payer] += e.amount);
+  const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const share = totalSpent / attendees.length;
+  const balances = attendees.map(name => ({ name, balance: totals[name] - share }));
 
-  attendees.forEach(name => {
-    totals[name] = 0;
-    perPerson[name] = 0;
-  });
+  const creditors = balances.filter(p => p.balance > 0).sort((a, b) => b.balance - a.balance);
+  const debtors = balances.filter(p => p.balance < 0).sort((a, b) => a.balance - b.balance);
 
-  expenses.forEach(exp => {
-    totals[exp.payer] += exp.amount;
-    const share = exp.amount / attendees.length;
-    attendees.forEach(name => {
-      perPerson[name] += share;
-    });
-  });
-
-  const balances = attendees.map(name => ({
-    name,
-    balance: totals[name] - perPerson[name]
-  })).sort((a, b) => a.balance - b.balance);
-
-  const results = [];
-  let i = 0, j = balances.length - 1;
-  while (i < j) {
-    const owe = Math.min(-balances[i].balance, balances[j].balance);
-    if (owe > 0.01) {
-      results.push(`${balances[i].name} pays $${owe.toFixed(2)} to ${balances[j].name}`);
-      balances[i].balance += owe;
-      balances[j].balance -= owe;
-    }
-    if (Math.abs(balances[i].balance) < 0.01) i++;
-    if (Math.abs(balances[j].balance) < 0.01) j--;
+  let results = [];
+  while (creditors.length && debtors.length) {
+    const credit = creditors[0];
+    const debit = debtors[0];
+    const amount = Math.min(credit.balance, -debit.balance);
+    results.push(`${debit.name} pays $${amount.toFixed(2)} to ${credit.name}`);
+    credit.balance -= amount;
+    debit.balance += amount;
+    if (credit.balance === 0) creditors.shift();
+    if (debit.balance === 0) debtors.shift();
   }
 
-  document.getElementById('results').innerHTML = results.join('<br>');
+  document.getElementById('results').innerHTML = results.length ? '<ul>' + results.map(r => `<li>${r}</li>`).join('') + '</ul>' : '<p>All settled!</p>';
+  return results;
 }
 
 function shareResults() {
-  const text = document.getElementById('results').innerText;
-  if (text) {
-    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-  }
+  const results = calculate();
+  const text = encodeURIComponent('Expense Summary:\n' + results.join('\n'));
+  window.open(`https://wa.me/?text=${text}`, '_blank');
 }
+
+window.onload = () => {
+  updateAttendeeList();
+  updatePayerSelect();
+  updateExpenseList();
+};
